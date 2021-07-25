@@ -10,6 +10,7 @@ import cv2
 from glob import glob
 import os
 from tqdm import tqdm
+from imgaug import augmenters as iaa
 
 def gaussian_noise(sigma,image):
 	gaussian = np.random.normal(0,sigma,image.shape)
@@ -29,6 +30,17 @@ def realistic_noise(Ag,Dg,image):
 	noisy_image = image + N*M
 	cv2.normalize(noisy_image, noisy_image, 0, 1.0, cv2.NORM_MINMAX, dtype=-1)
 	return noisy_image
+
+
+def apply_defects(image):
+    seq = iaa.Sequential([
+        iaa.imgcorruptlike.Spatter(severity=2),
+    ])
+
+    image_aug = seq(image=image)
+
+    return image_aug
+
 
 if __name__=="__main__":
 
