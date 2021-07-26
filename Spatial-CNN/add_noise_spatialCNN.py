@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 from glob import glob
 import os
+import random
 from tqdm import tqdm
 from imgaug import augmenters as iaa
 
@@ -32,12 +33,44 @@ def realistic_noise(Ag,Dg,image):
 	return noisy_image
 
 
+def rand_patch(image, size_range=(32, 64)):
+    im_width = image.shape[1]
+    im_height = image.shape[0]
+
+    patch_width = random.randint(size_range[0], size_range[1])
+    patch_height = random.randint(size_range[0], size_range[1])
+    patch_x = random.randint(0, im_width - patch_width)
+    patch_y = random.randint(0, im_height - patch_height)
+
+    return patch_x, patch_y, patch_width, patch_height
+
+
 def apply_defects(image):
     seq = iaa.Sequential([
-        iaa.imgcorruptlike.Spatter(severity=2),
+        iaa.imgcorruptlike.Spatter(severity=3),
     ])
 
-    image_aug = seq(image=image)
+    image_aug = image.copy()
+
+    num_repeats = random.randint(10, 40)
+    for _ in range(num_repeats):
+        patch_x, patch_y, patch_width, patch_height = rand_patch(image_aug)
+        patch_image = image_aug[
+            patch_y:patch_y+patch_height,
+            patch_x:patch_x+patch_width,
+        ]
+        patch_image_aug = seq(image=patch_image)
+
+        alpha_mask = np.random.rand(patch_height, patch_width)
+        alpha_mask = np.stack([alpha_mask] * 3, axis=2)
+        image_aug[
+            patch_y:patch_y+patch_height,
+            patch_x:patch_x+patch_width,
+        ] = \
+            image_aug[
+                patch_y:patch_y+patch_height,
+                patch_x:patch_x+patch_width,
+            ] * alpha_mask + patch_image_aug * (1 - alpha_mask)
 
     return image_aug
 
