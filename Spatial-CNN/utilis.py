@@ -6,7 +6,9 @@ Created on Thu May 30 14:32:05 2019
 """
 
 import gc
+import glob
 import os
+import pathlib
 import sys
 
 import numpy as np
@@ -72,3 +74,26 @@ def load_images(filelist):
 	# pixel value range 0-255
 	data = np.array( [cv2.imread(img) for img in filelist] )
 	return data
+
+
+def mkdir_p(dir_path):
+    pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
+
+
+def get_videonames(videos_dir, extensions=('mp4', 'mov')):
+    videonames = []
+    for extension in extensions:
+        videonames.extend(glob.glob(
+            os.path.join(videos_dir, '*.{}'.format(extension)),
+        ))
+
+    return sorted(videonames)
+
+
+def crop_image(img, bbox):
+    xmin = bbox[0]
+    ymin = bbox[1]
+    xmax = bbox[2]
+    ymax = bbox[3]
+
+    return img[ymin:ymax, xmin:xmax]

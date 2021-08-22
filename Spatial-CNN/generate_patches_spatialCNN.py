@@ -1,101 +1,220 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May 30 14:32:05 2019
-
-@author: clausmichele
-"""
-
 import argparse
-from glob import glob
+import os
 import random
-from utilis import *
 
-DATA_AUG_TIMES = 3  # transform a sample to a different sample for DATA_AUG_TIMES times
+import cv2
+import numpy as np
 
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--src_dir', dest='src_dir', default='./data/train/original', help='dir of data')
-parser.add_argument('--save_dir', dest='save_dir', default='./data/train', help='dir of patches')
-parser.add_argument('--src_dir_noisy', dest='src_dir_noisy', default='./data/train/noisy', help='dir of noisy data')
-parser.add_argument('--save_dir_noisy', dest='save_dir_noisy', default='./data/train', help='dir of noisy patches')
-parser.add_argument('--patch_size', dest='pat_size', type=int, default=50, help='patch size')
-parser.add_argument('--stride', dest='stride', type=int, default=100, help='stride')
-parser.add_argument('--batch_size', dest='bat_size', type=int, default=64, help='batch size')
-args = parser.parse_args()
-
-def sortKeyFunc(s):
-	 return int(os.path.basename(s)[:-4])
-	 
-def generate_patches():
-	global DATA_AUG_TIMES
-	count = 0
-	filepaths = glob(args.src_dir + '/*.png') #takes all the paths of the png files in the train folder
-	filepaths.sort(key=sortKeyFunc) #order the file list
-	filepaths_noisy = glob(args.src_dir_noisy + '/*.png')
-	filepaths_noisy.sort(key=sortKeyFunc)
-	print ("[*] Number of training samples: %d" % len(filepaths))
-	scales = [1, 0.8]
-	
-	# calculate the number of patches
-	for i in range(len(filepaths)):
-		img = cv2.imread(filepaths[i])
-		for s in range(len(scales)):
-			newsize = (int(img.shape[0] * scales[s]), int(img.shape[1] * scales[s]))
-			img_s = cv2.resize(img,newsize, interpolation = cv2.INTER_CUBIC)
-			im_h = img_s.shape[0]
-			im_w = img_s.shape[1]
-			for x in range(0, (im_h - args.pat_size), args.stride):
-				for y in range(0, (im_w - args.pat_size), args.stride):
-					count += 1
-
-	origin_patch_num = count * DATA_AUG_TIMES
-	
-	if origin_patch_num % args.bat_size != 0:
-		numPatches = (origin_patch_num / args.bat_size + 1) * args.bat_size #round 
-	else:
-		numPatches = origin_patch_num
-	print ("[*] Number of patches = %d, batch size = %d, total batches = %d" % \
-		(numPatches, args.bat_size, numPatches / args.bat_size))
-
-	# data matrix 4-D
-	inputs = np.zeros((int(numPatches), args.pat_size, args.pat_size, 3), dtype="uint8") # clean patches
-	inputs2 = np.zeros((int(numPatches), args.pat_size, args.pat_size, 3), dtype="uint8") # noisy patches
-	
-	count = 0
-	# generate patches
-	for i in range(len(filepaths)):
-		img = cv2.imread(filepaths[i])
-		img2 = cv2.imread(filepaths_noisy[i])
-		for s in range(len(scales)):
-			newsize = (int(img.shape[0] * scales[s]), int(img.shape[1] * scales[s]))
-			img_s = cv2.resize(img,newsize, interpolation = cv2.INTER_CUBIC)
-			img_s2 = cv2.resize(img2,newsize, interpolation = cv2.INTER_CUBIC) 
-			img_s = np.reshape(np.array(img_s, dtype="uint8"), (img_s.shape[0], img_s.shape[1], 3))  # extend one dimension
-			img_s2 = np.reshape(np.array(img_s2, dtype="uint8"), (img_s2.shape[0], img_s2.shape[1], 3))  # extend one dimension
-			
-			for j in range(DATA_AUG_TIMES):
-				im_h = img_s.shape[0]; im_w = img_s.shape[1]
-				for x in range(0, im_h - args.pat_size, args.stride):
-					for y in range(0, im_w - args.pat_size, args.stride):
-						a=random.randint(0, 7)
-						inputs[count, :, :, :] = data_augmentation(img_s[x:x + args.pat_size, y:y + args.pat_size, :], a)
-						inputs2[count, :, :, :] = data_augmentation(img_s2[x:x + args.pat_size, y:y + args.pat_size, :], a)
-						count += 1
-	# pad the batch
-	if count < numPatches:
-		to_pad = int(numPatches - count)
-		inputs[-to_pad:, :, :, :] = inputs[:to_pad, :, :, :]
-		inputs2[-to_pad:, :, :, :] = inputs2[:to_pad, :, :, :]
+from utilis import crop_image
+from utilis import data_augmentation
+from utilis import get_videonames
+from utilis import mkdir_p
 
 
-	if not os.path.exists(args.save_dir):
-		os.mkdir(args.save_dir)
-	np.save(os.path.join(args.save_dir, "img_clean_pats"), inputs)
-	print("[*] size of input clean tensor = " + str(inputs.shape))
-	if not os.path.exists(args.save_dir_noisy):
-		os.mkdir(args.save_dir_noisy)
-	np.save(os.path.join(args.save_dir_noisy, "img_noisy_pats"), inputs2)
-	print("[*] size of input noisy tensor = " + str(inputs2.shape))
-	print("[*] Patches generated and saved!")
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Script to generate patches from data',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument('data_dir', type=str, help='Data root directory')
+    parser.add_argument(
+        'save_dir',
+        type=str,
+        help='Directory to save generated patches',
+    )
+    parser.add_argument(
+        '--patch_size',
+        type=int,
+        default=50,
+        help='Patch size',
+    )
+    parser.add_argument('--stride', type=int, default=100, help='Stride size')
+    parser.add_argument(
+        '--num_aug',
+        type=int,
+        default=3,
+        help='Number of augmentations',
+    )
+
+    args = parser.parse_args()
+
+    return args
+
+
+class IndexedVideoReader(object):
+
+    def __init__(self, filename):
+        self._filename = filename
+        self._video = cv2.VideoCapture(filename)
+
+    @property
+    def filename(self):
+        return self._filename
+
+    def __del__(self):
+        self._video.release()
+
+    def __len__(self):
+        return int(self._video.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    def read(self, index):
+        self._video.set(cv2.CAP_PROP_POS_FRAMES, index)
+
+        return self._video.read()
+
+
+def gen_patch_filename(
+    videoname,
+    img_idx,
+    scale,
+    xmin,
+    ymin,
+    aug_mode,
+    extension,
+):
+    basename = os.path.basename(videoname).replace('.', '_')
+
+    return '{}_{}_{}_{}_{}_{}.{}'.format(
+        basename,
+        img_idx,
+        scale,
+        xmin,
+        ymin,
+        aug_mode,
+        extension,
+    )
+
+
+def generate_patches(
+    video_noisy,
+    video_clean,
+    patch_size,
+    stride,
+    num_aug,
+    out_dir_noisy,
+    out_dir_clean,
+    scales=(1, 0.8),
+    output_extension='png',
+):
+    assert len(video_noisy) == len(video_clean), \
+        'Number of frames are not equal for noisy and clean videos pair'
+
+    count_img_pairs = 0
+    count_patch_pairs = 0
+
+    for img_idx in range(len(video_noisy)):
+        success_noisy, img_noisy = video_noisy.read(img_idx)
+        success_clean, img_clean = video_clean.read(img_idx)
+
+        if (not success_noisy) or (not success_clean):
+            continue
+
+        count_img_pairs += 1
+
+        for scale in scales:
+            new_size = (
+                int(img_noisy.shape[0] * scale),
+                int(img_noisy.shape[1] * scale),
+            )
+            img_scaled_noisy = cv2.resize(
+                img_noisy,
+                new_size,
+                interpolation=cv2.INTER_CUBIC,
+            )
+            img_scaled_clean = cv2.resize(
+                img_clean,
+                new_size,
+                interpolation=cv2.INTER_CUBIC,
+            )
+
+            im_width = img_scaled_noisy.shape[1]
+            im_height = img_scaled_noisy.shape[0]
+            for xmin in range(0, im_width - patch_size, stride):
+                for ymin in range(0, im_height - patch_size, stride):
+                    bbox = (
+                        xmin,
+                        ymin,
+                        xmin + patch_size,
+                        ymin + patch_size,
+                    )
+                    patch_noisy = crop_image(img_scaled_noisy, bbox)
+                    patch_clean = crop_image(img_scaled_clean, bbox)
+
+                    for aug_mode in random.sample(range(7), 3):
+                        patch_aug_noisy = data_augmentation(
+                            patch_noisy,
+                            aug_mode,
+                        )
+                        patch_aug_clean = data_augmentation(
+                            patch_clean,
+                            aug_mode,
+                        )
+
+                        filename_noisy = os.path.join(
+                            out_dir_noisy,
+                            gen_patch_filename(
+                                video_noisy.filename,
+                                img_idx,
+                                scale,
+                                xmin,
+                                ymin,
+                                aug_mode,
+                                output_extension,
+                            ),
+                        )
+                        cv2.imwrite(filename_noisy, patch_aug_noisy)
+                        filename_clean = os.path.join(
+                            out_dir_clean,
+                            gen_patch_filename(
+                                video_clean.filename,
+                                img_idx,
+                                scale,
+                                xmin,
+                                ymin,
+                                aug_mode,
+                                output_extension,
+                            ),
+                        )
+                        cv2.imwrite(filename_clean, patch_aug_clean)
+
+                        count_patch_pairs += 1
+
+    return count_img_pairs, count_patch_pairs
+
+
+def main(args):
+    out_dir_noisy = os.path.join(args.save_dir, 'before')
+    out_dir_clean = os.path.join(args.save_dir, 'after')
+    mkdir_p(out_dir_noisy)
+    mkdir_p(out_dir_clean)
+
+    videonames_noisy = get_videonames(os.path.join(args.data_dir, 'before'))
+    videonames_clean = get_videonames(os.path.join(args.data_dir, 'after'))
+
+    num_img_pairs = 0
+    num_patch_pairs = 0
+    for videoname_noisy, videoname_clean in \
+        zip(videonames_noisy, videonames_clean):
+        video_noisy = IndexedVideoReader(videoname_noisy)
+        video_clean = IndexedVideoReader(videoname_clean)
+
+        count_img_pairs, count_patch_pairs = generate_patches(
+            video_noisy,
+            video_clean,
+            args.patch_size,
+            args.stride,
+            args.num_aug,
+            out_dir_noisy,
+            out_dir_clean,
+        )
+
+        num_img_pairs += count_img_pairs
+        num_patch_pairs += count_patch_pairs
+
+    print ('[*] Number of training image pairs: {}'.format(num_img_pairs))
+    print ('[*] Number of training patch pairs: {}'.format(num_patch_pairs))
+    print('[*] Patches generated and saved!')
+
 
 if __name__ == '__main__':
-	generate_patches()
+    main(parse_args())
