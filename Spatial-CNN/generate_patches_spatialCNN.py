@@ -7,6 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 import cv2
 
+from alignment import align_images
 from utilis import crop_image
 from utilis import data_augmentation
 from utilis import get_videonames
@@ -116,6 +117,11 @@ def generate_patches_imp(
         success_clean, img_clean = video_clean.read(img_idx)
 
         if (not success_noisy) or (not success_clean):
+            continue
+
+        success_align, img_clean = align_images(img_clean, img_noisy)
+
+        if not success_align:
             continue
 
         count_img_pairs += 1
