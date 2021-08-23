@@ -1,9 +1,11 @@
 import argparse
 import os
+import math
 import random
+from concurrent.futures import as_completed
+from concurrent.futures import ProcessPoolExecutor
 
 import cv2
-import numpy as np
 
 from utilis import crop_image
 from utilis import data_augmentation
@@ -34,6 +36,12 @@ def parse_args():
         type=int,
         default=3,
         help='Number of augmentations',
+    )
+    parser.add_argument(
+        '--num_workers',
+        type=int,
+        default=1,
+        help='Number of workers',
     )
 
     args = parser.parse_args()
@@ -85,24 +93,25 @@ def gen_patch_filename(
     )
 
 
-def generate_patches(
-    video_noisy,
-    video_clean,
+def generate_patches_imp(
+    videoname_noisy,
+    videoname_clean,
+    img_idxes,
     patch_size,
     stride,
     num_aug,
     out_dir_noisy,
     out_dir_clean,
-    scales=(1, 0.8),
-    output_extension='png',
+    scales,
+    output_extension,
 ):
-    assert len(video_noisy) == len(video_clean), \
-        'Number of frames are not equal for noisy and clean videos pair'
+    video_noisy = IndexedVideoReader(videoname_noisy)
+    video_clean = IndexedVideoReader(videoname_clean)
 
     count_img_pairs = 0
     count_patch_pairs = 0
 
-    for img_idx in range(len(video_noisy)):
+    for img_idx in img_idxes:
         success_noisy, img_noisy = video_noisy.read(img_idx)
         success_clean, img_clean = video_clean.read(img_idx)
 
@@ -182,6 +191,60 @@ def generate_patches(
     return count_img_pairs, count_patch_pairs
 
 
+def generate_patches(
+    videoname_noisy,
+    videoname_clean,
+    patch_size,
+    stride,
+    num_aug,
+    num_workers,
+    out_dir_noisy,
+    out_dir_clean,
+    scales=(1, 0.8),
+    output_extension='png',
+):
+    video_noisy = IndexedVideoReader(videoname_noisy)
+    video_clean = IndexedVideoReader(videoname_clean)
+
+    assert len(video_noisy) == len(video_clean), \
+        'Number of frames are not equal for noisy and clean videos pair'
+
+    chunk_size = math.ceil(len(video_noisy) / num_workers)
+    img_idxes = list(range(len(video_noisy)))
+    img_idxes_chunks = [
+        img_idxes[i:i + chunk_size]
+        for i in range(0, len(video_noisy), chunk_size)
+    ]
+
+    count_img_pairs = 0
+    count_patch_pairs = 0
+
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        futures = []
+        for img_idxes in img_idxes_chunks:
+            future = executor.submit(
+                generate_patches_imp,
+                videoname_noisy,
+                videoname_clean,
+                img_idxes,
+                patch_size,
+                stride,
+                num_aug,
+                out_dir_noisy,
+                out_dir_clean,
+                scales,
+                output_extension,
+            )
+            futures.append(future)
+
+        for future in as_completed(futures):
+            results = future.result()
+            count_img_pairs += results[0]
+            count_patch_pairs += results[1]
+
+    return count_img_pairs, count_patch_pairs
+
+
 def main(args):
     out_dir_noisy = os.path.join(args.save_dir, 'before')
     out_dir_clean = os.path.join(args.save_dir, 'after')
@@ -194,16 +257,14 @@ def main(args):
     num_img_pairs = 0
     num_patch_pairs = 0
     for videoname_noisy, videoname_clean in \
-        zip(videonames_noisy, videonames_clean):
-        video_noisy = IndexedVideoReader(videoname_noisy)
-        video_clean = IndexedVideoReader(videoname_clean)
-
+            zip(videonames_noisy, videonames_clean):
         count_img_pairs, count_patch_pairs = generate_patches(
-            video_noisy,
-            video_clean,
+            videoname_noisy,
+            videoname_clean,
             args.patch_size,
             args.stride,
             args.num_aug,
+            args.num_workers,
             out_dir_noisy,
             out_dir_clean,
         )
@@ -211,8 +272,8 @@ def main(args):
         num_img_pairs += count_img_pairs
         num_patch_pairs += count_patch_pairs
 
-    print ('[*] Number of training image pairs: {}'.format(num_img_pairs))
-    print ('[*] Number of training patch pairs: {}'.format(num_patch_pairs))
+    print('[*] Number of training image pairs: {}'.format(num_img_pairs))
+    print('[*] Number of training patch pairs: {}'.format(num_patch_pairs))
     print('[*] Patches generated and saved!')
 
 
