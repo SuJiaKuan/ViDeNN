@@ -107,3 +107,10 @@ def crop_image(img, bbox):
     ymax = bbox[3]
 
     return img[ymin:ymax, xmin:xmax]
+
+
+def shuffle_in_unison(lst_x, lst_y):
+    rng_state = np.random.get_state()
+    np.random.shuffle(lst_x)
+    np.random.set_state(rng_state)
+    np.random.shuffle(lst_y)

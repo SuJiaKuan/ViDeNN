@@ -16,6 +16,7 @@ from dataloader import load_test_imagenames
 from dataloader import TrainLoader
 from model_spatialCNN import denoiser
 from utilis import load_images
+from utilis import shuffle_in_unison
 
 
 def parse_args():
@@ -82,6 +83,7 @@ def denoiser_train(denoiser, lr, args):
     eval_filenames_noisy, eval_filenames_clean = load_test_imagenames(
         eval_data_dir,
     )
+    shuffle_in_unison(eval_filenames_noisy, eval_filenames_clean)
     eval_data_noisy = load_images(eval_filenames_noisy[:20])
     eval_data_clean = load_images(eval_filenames_clean[:20])
 
