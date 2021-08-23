@@ -73,3 +73,10 @@ class TrainLoader(object):
             data_clean.append(cv2.imread(filename_clean))
 
         return np.array(data_noisy), np.array(data_clean)
+
+
+def load_test_imagenames(data_dir):
+    filenames_noisy = get_imagenames(os.path.join(data_dir, 'before'))
+    filenames_clean = get_imagenames(os.path.join(data_dir, 'after'))
+
+    return filenames_noisy, filenames_clean

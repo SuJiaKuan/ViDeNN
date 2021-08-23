@@ -123,8 +123,8 @@ class denoiser(object):
     def train(
         self,
         data_dir,
-        eval_data,
         eval_data_noisy,
+        eval_data_clean,
         batch_size,
         ckpt_dir,
         epoch,
@@ -158,7 +158,7 @@ class denoiser(object):
         self.evaluate(
             iter_num,
             eval_data_noisy,
-            eval_data,
+            eval_data_clean,
             summary_merged=summary_psnr,
             summary_writer=writer,
         )  # eval_data value range is 0-255
@@ -189,7 +189,7 @@ class denoiser(object):
             self.evaluate(
                 iter_num,
                 eval_data_noisy,
-                eval_data,
+                eval_data_clean,
                 summary_merged=summary_psnr,
                 summary_writer=writer,
             )  # eval_data value range is 0-255

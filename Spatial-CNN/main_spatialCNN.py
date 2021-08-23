@@ -9,6 +9,7 @@ import argparse
 from glob import glob
 import tensorflow as tf
 import os
+from dataloader import load_test_imagenames
 from model_spatialCNN import denoiser
 from utilis import load_data
 from utilis import load_images
@@ -72,17 +73,18 @@ def parse_args():
 
 def denoiser_train(denoiser, lr, args):
     train_data_dir = os.path.join(args.data_dir, 'train')
-    noisy_eval_files = glob('./data/test/noisy/*.png')
-    noisy_eval_files = sorted(noisy_eval_files)
-    eval_data_noisy = load_images(noisy_eval_files)
-    eval_files = glob('./data/test/original/*.png')
-    eval_files = sorted(eval_files)
+    eval_data_dir = os.path.join(args.data_dir, 'test')
 
-    eval_data = load_images(eval_files)
+    eval_filenames_noisy, eval_filenames_clean = load_test_imagenames(
+        eval_data_dir,
+    )
+    eval_data_noisy = load_images(eval_filenames_noisy[:20])
+    eval_data_clean = load_images(eval_filenames_clean[:20])
+
     denoiser.train(
         train_data_dir,
-        eval_data[0:20],
-        eval_data_noisy[0:20],
+        eval_data_noisy,
+        eval_data_clean,
         batch_size=args.batch_size,
         ckpt_dir=args.ckpt_dir,
         epoch=args.epoch,
