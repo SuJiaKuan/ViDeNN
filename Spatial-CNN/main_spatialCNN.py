@@ -64,7 +64,7 @@ def parse_args():
     parser.add_argument(
         '--save_dir',
         dest='save_dir',
-        default='./data/denoised',
+        default='./denoised',
         help='denoised sample are saved here',
     )
 
@@ -96,15 +96,15 @@ def denoiser_train(denoiser, lr, args):
 
 
 def denoiser_test(denoiser, args):
-    noisy_eval_files = glob('./data/test/noisy/*.png')
-    noisy_eval_files = sorted(noisy_eval_files)
-    eval_files = glob('./data/test/original/*.png')
-    eval_files = sorted(eval_files)
+    eval_data_dir = os.path.join(args.data_dir, 'test')
+    eval_filenames_noisy, eval_filenames_clean = load_test_imagenames(
+        eval_data_dir,
+    )
     denoiser.test(
-        noisy_eval_files,
-        eval_files,
-        ckpt_dir=args.ckpt_dir,
-        save_dir=args.save_dir,
+        eval_filenames_noisy,
+        eval_filenames_clean,
+        args.ckpt_dir,
+        args.save_dir,
     )
 
 

@@ -190,22 +190,28 @@ class denoiser(object):
             self.save(iter_num, ckpt_dir)
         print("[*] Finish training.")
 
-    def test(self, eval_data_noisy, eval_data, ckpt_dir, save_dir):
+    def test(
+        self,
+        eval_filenames_noisy,
+        eval_filenames_clean,
+        ckpt_dir,
+        save_dir,
+    ):
         """Test Spatial-CNN"""
         # init variables
         tf.global_variables_initializer().run()
 
-        assert len(eval_data) != 0, 'No testing data!'
+        assert len(eval_filenames_noisy) != 0, 'No testing data!'
         load_model_status, global_step = self.load(ckpt_dir)
         assert load_model_status, '[!] Load weights FAILED...'
         print(" [*] Load weights SUCCESS...")
         psnr_sum = 0.0
         start = time.time()
-        for idx in range(len(eval_data)):
-            test = cv2.imread(eval_data[idx])
+        for idx in range(len(eval_filenames_noisy)):
+            test = cv2.imread(eval_filenames_clean[idx])
             test1 = test.astype(np.float32) / 255.0
             test1 = test1[np.newaxis, ...]
-            noisy = cv2.imread(eval_data_noisy[idx])
+            noisy = cv2.imread(eval_filenames_noisy[idx])
             noisy2 = noisy.astype(np.float32) / 255.0
             noisy2 = noisy2[np.newaxis, ...]
             output_clean_image = self.sess.run(
@@ -220,10 +226,12 @@ class denoiser(object):
             psnr1 = psnr_scaled(test1[0], noisy2[0])
             print("img%d PSNR: %.2f %.2f" % (idx, psnr, psnr1))
             psnr_sum += psnr
-            path = eval_data[idx].split('al')[-1]
-            # path = eval_data[idx].split('/')[-1]
-            cv2.imwrite((save_dir + "/" + path), out2[0, 0] * 255)
-        avg_psnr = psnr_sum / len(eval_data)
+            output_filename = os.path.basename(eval_filenames_noisy[idx])
+            cv2.imwrite(
+                os.path.join(save_dir, output_filename),
+                out2[0, 0] * 255,
+            )
+        avg_psnr = psnr_sum / len(eval_filenames_noisy)
         print("--- Average PSNR %.2f ---" % avg_psnr)
         print("--- Elapsed time: %.4f" % (time.time()-start))
 
