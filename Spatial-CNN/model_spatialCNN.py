@@ -10,8 +10,6 @@ import cv2
 import numpy as np
 import tensorflow as tf
 
-from dataloader import TrainLoader
-
 
 def SpatialCNN(
     input,
@@ -122,17 +120,14 @@ class denoiser(object):
 
     def train(
         self,
-        data_dir,
+        data_loader,
         eval_data_noisy,
         eval_data_clean,
-        batch_size,
         ckpt_dir,
         epoch,
         lr,
         eval_every_epoch=1,
     ):
-        data_loader = TrainLoader(data_dir, batch_size)
-
         num_batch = len(data_loader)
         # load pretrained model
         load_model_status, global_step = self.load(ckpt_dir)

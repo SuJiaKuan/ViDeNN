@@ -10,6 +10,7 @@ from glob import glob
 import tensorflow as tf
 import os
 from dataloader import load_test_imagenames
+from dataloader import TrainLoader
 from model_spatialCNN import denoiser
 from utilis import load_data
 from utilis import load_images
@@ -75,6 +76,8 @@ def denoiser_train(denoiser, lr, args):
     train_data_dir = os.path.join(args.data_dir, 'train')
     eval_data_dir = os.path.join(args.data_dir, 'test')
 
+    data_loader = TrainLoader(train_data_dir, args.batch_size)
+
     eval_filenames_noisy, eval_filenames_clean = load_test_imagenames(
         eval_data_dir,
     )
@@ -82,10 +85,9 @@ def denoiser_train(denoiser, lr, args):
     eval_data_clean = load_images(eval_filenames_clean[:20])
 
     denoiser.train(
-        train_data_dir,
+        data_loader,
         eval_data_noisy,
         eval_data_clean,
-        batch_size=args.batch_size,
         ckpt_dir=args.ckpt_dir,
         epoch=args.epoch,
         lr=lr,
