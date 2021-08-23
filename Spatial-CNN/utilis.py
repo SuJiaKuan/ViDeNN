@@ -80,6 +80,16 @@ def mkdir_p(dir_path):
     pathlib.Path(dir_path).mkdir(parents=True, exist_ok=True)
 
 
+def get_imagenames(imgs_dir, extensions=('bmp', 'png', 'jpg', 'jpeg', 'tif')):
+    imagenames = []
+    for extension in extensions:
+        imagenames.extend(glob.glob(
+            os.path.join(imgs_dir, '*.{}'.format(extension)),
+        ))
+
+    return sorted(imagenames)
+
+
 def get_videonames(videos_dir, extensions=('mp4', 'mov')):
     videonames = []
     for extension in extensions:

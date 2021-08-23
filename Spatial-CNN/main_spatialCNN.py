@@ -17,6 +17,7 @@ import numpy as np
 
 def parse_args():
     parser = argparse.ArgumentParser(description='')
+    parser.add_argument('data_dir', type=str, help='Data root directory')
     parser.add_argument(
         '--epoch',
         dest='epoch',
@@ -70,11 +71,7 @@ def parse_args():
 
 
 def denoiser_train(denoiser, lr, args):
-    with load_data('./data/train/img_clean_pats.npy') as data_:
-        data = data_
-    with load_data('./data/train/img_noisy_pats.npy') as data_noisy_:
-        data_noisy = data_noisy_
-
+    train_data_dir = os.path.join(args.data_dir, 'train')
     noisy_eval_files = glob('./data/test/noisy/*.png')
     noisy_eval_files = sorted(noisy_eval_files)
     eval_data_noisy = load_images(noisy_eval_files)
@@ -83,8 +80,7 @@ def denoiser_train(denoiser, lr, args):
 
     eval_data = load_images(eval_files)
     denoiser.train(
-        data,
-        data_noisy,
+        train_data_dir,
         eval_data[0:20],
         eval_data_noisy[0:20],
         batch_size=args.batch_size,
