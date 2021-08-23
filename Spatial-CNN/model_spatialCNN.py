@@ -126,7 +126,6 @@ class denoiser(object):
         ckpt_dir,
         epoch,
         lr,
-        eval_every_epoch=1,
     ):
         num_batch = len(data_loader)
         # load pretrained model

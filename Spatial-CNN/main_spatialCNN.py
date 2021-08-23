@@ -6,15 +6,16 @@ Created on Thu May 30 14:32:05 2019
 """
 
 import argparse
-from glob import glob
-import tensorflow as tf
 import os
+from glob import glob
+
+import numpy as np
+import tensorflow as tf
+
 from dataloader import load_test_imagenames
 from dataloader import TrainLoader
 from model_spatialCNN import denoiser
-from utilis import load_data
 from utilis import load_images
-import numpy as np
 
 
 def parse_args():
@@ -88,9 +89,9 @@ def denoiser_train(denoiser, lr, args):
         data_loader,
         eval_data_noisy,
         eval_data_clean,
-        ckpt_dir=args.ckpt_dir,
-        epoch=args.epoch,
-        lr=lr,
+        args.ckpt_dir,
+        args.epoch,
+        lr,
     )
 
 
@@ -134,7 +135,8 @@ def main(_):
         # Control the gpu memory setting per_process_gpu_memory_fraction
         print("GPU\n")
         gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
-        with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+        with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as \
+                sess:
             model = denoiser(sess)
             if args.phase == 'train':
                 denoiser_train(model, lr, args)
