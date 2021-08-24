@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 import math
 import random
@@ -6,8 +7,10 @@ from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 
 import cv2
+from tqdm import tqdm
 
 from alignment import align_images
+from utilis import save_pickle
 from utilis import crop_image
 from utilis import data_augmentation
 from utilis import get_videonames
@@ -259,6 +262,22 @@ def generate_patches(
     return count_img_pairs, count_patch_pairs
 
 
+def validate_pairs(dir_noisy, dir_clean, extension='png'):
+    print('Validate the generated pairs...')
+
+    filenames = [
+        os.path.basename(f)
+        for f in glob.glob(os.path.join(dir_noisy, '*.{}'.format(extension)))
+    ]
+
+    valid_filenames = []
+    for filename in tqdm(filenames):
+        if os.path.exists(os.path.join(dir_clean, filename)):
+            valid_filenames.append(filename)
+
+    return valid_filenames
+
+
 def main(args):
     out_dir_noisy = os.path.join(args.save_dir, 'before')
     out_dir_clean = os.path.join(args.save_dir, 'after')
@@ -286,8 +305,14 @@ def main(args):
         num_img_pairs += count_img_pairs
         num_patch_pairs += count_patch_pairs
 
-    print('[*] Number of training image pairs: {}'.format(num_img_pairs))
-    print('[*] Number of training patch pairs: {}'.format(num_patch_pairs))
+    valid_filenames = validate_pairs(out_dir_noisy, out_dir_clean)
+
+    filenames_path = os.path.join(args.save_dir, 'filenames.pickle')
+    save_pickle(valid_filenames, filenames_path)
+
+    print('[*] Number of detected image pairs: {}'.format(num_img_pairs))
+    print('[*] Number of generated patch pairs: {}'.format(num_patch_pairs))
+    print('[*] Number of valid patch pairs: {}'.format(len(valid_filenames)))
     print('[*] Patches generated and saved!')
 
 
