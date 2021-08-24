@@ -7,6 +7,7 @@ from concurrent.futures import as_completed
 from concurrent.futures import ProcessPoolExecutor
 
 import cv2
+import numpy as np
 from tqdm import tqdm
 
 from alignment import align_images
@@ -98,6 +99,13 @@ def gen_patch_filename(
     )
 
 
+def calc_diff_value(img_noisy, img_clean, patch_size):
+    img_diff = cv2.absdiff(img_noisy, img_clean)
+    diff_value = np.sum(img_diff) / (patch_size ** 2)
+
+    return diff_value
+
+
 def generate_patches_imp(
     worker_id,
     videoname_noisy,
@@ -117,6 +125,7 @@ def generate_patches_imp(
 
     count_img_pairs = 0
     count_patch_pairs = 0
+    diff_value_mapping = {}
 
     for idx, img_idx in enumerate(img_idxes):
         print('[Worker {}] Processing {} / {}'.format(
@@ -206,9 +215,17 @@ def generate_patches_imp(
                         )
                         cv2.imwrite(filename_clean, patch_aug_clean)
 
+                        diff_value = calc_diff_value(
+                            patch_aug_noisy,
+                            patch_aug_clean,
+                            patch_size,
+                        )
+                        filename = os.path.basename(filename_noisy)
+                        diff_value_mapping[filename] = diff_value
+
                         count_patch_pairs += 1
 
-    return count_img_pairs, count_patch_pairs
+    return count_img_pairs, count_patch_pairs, diff_value_mapping
 
 
 def generate_patches(
@@ -239,6 +256,7 @@ def generate_patches(
 
     count_img_pairs = 0
     count_patch_pairs = 0
+    diff_value_mapping = {}
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures = []
@@ -264,8 +282,9 @@ def generate_patches(
             results = future.result()
             count_img_pairs += results[0]
             count_patch_pairs += results[1]
+            diff_value_mapping.update(results[2])
 
-    return count_img_pairs, count_patch_pairs
+    return count_img_pairs, count_patch_pairs, diff_value_mapping
 
 
 def validate_pairs(dir_noisy, dir_clean, extension='png'):
@@ -284,9 +303,22 @@ def validate_pairs(dir_noisy, dir_clean, extension='png'):
     return valid_filenames
 
 
+def generate_diff_values(filenames, diff_value_mapping):
+    print('Generate diff values...')
+
+    diff_values = []
+    for filename in tqdm(filenames):
+        diff_values.append(diff_value_mapping[filename])
+
+    return np.array(diff_values)
+
+
 def main(args):
     out_dir_noisy = os.path.join(args.save_dir, 'before')
     out_dir_clean = os.path.join(args.save_dir, 'after')
+    filenames_path = os.path.join(args.save_dir, 'filenames.pickle')
+    diff_values_path = os.path.join(args.save_dir, 'diff_values.npy')
+
     mkdir_p(out_dir_noisy)
     mkdir_p(out_dir_clean)
 
@@ -295,9 +327,10 @@ def main(args):
 
     num_img_pairs = 0
     num_patch_pairs = 0
+    diff_value_mapping_all = {}
     for videoname_noisy, videoname_clean in \
             zip(videonames_noisy, videonames_clean):
-        count_img_pairs, count_patch_pairs = generate_patches(
+        count_img_pairs, count_patch_pairs, diff_value_mapping = generate_patches(
             videoname_noisy,
             videoname_clean,
             args.patch_size,
@@ -311,11 +344,16 @@ def main(args):
 
         num_img_pairs += count_img_pairs
         num_patch_pairs += count_patch_pairs
+        diff_value_mapping_all.update(diff_value_mapping)
 
     valid_filenames = validate_pairs(out_dir_noisy, out_dir_clean)
-
-    filenames_path = os.path.join(args.save_dir, 'filenames.pickle')
     save_pickle(valid_filenames, filenames_path)
+
+    diff_values = generate_diff_values(
+        valid_filenames,
+        diff_value_mapping_all,
+    )
+    np.save(diff_values_path, diff_values)
 
     print('[*] Number of detected image pairs: {}'.format(num_img_pairs))
     print('[*] Number of generated patch pairs: {}'.format(num_patch_pairs))
