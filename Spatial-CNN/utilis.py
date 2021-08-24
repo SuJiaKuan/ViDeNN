@@ -9,6 +9,7 @@ import gc
 import glob
 import os
 import pathlib
+import pickle
 import sys
 
 import numpy as np
@@ -114,3 +115,13 @@ def shuffle_in_unison(lst_x, lst_y):
     np.random.shuffle(lst_x)
     np.random.set_state(rng_state)
     np.random.shuffle(lst_y)
+
+
+def save_pickle(data, file_path):
+    with open(file_path, 'wb') as f:
+        return pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def load_pickle(file_path):
+    with open(file_path, 'rb') as f:
+        return pickle.load(f)

@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 from utilis import get_imagenames
+from utilis import load_pickle
 
 
 class TrainLoader(object):
@@ -14,50 +15,42 @@ class TrainLoader(object):
         self._data_dir = data_dir
         self._batch_size = batch_size
 
-        # Collect noisy images (patches).
-        self._filenames_noisy = get_imagenames(
-            os.path.join(self._data_dir, 'before'),
-        )
-        # Collect clean images (patches).
-        self._filenames_clean = get_imagenames(
-            os.path.join(self._data_dir, 'after'),
-        )
+        self._dir_noisy = os.path.join(self._data_dir, 'before')
+        self._dir_clean = os.path.join(self._data_dir, 'after')
 
-        assert len(self._filenames_noisy) == len(self._filenames_clean), \
-            'Number of patches are not equal for noisy and clean pair'
+        # Load filenames for both noisy and clean images (patches).
+        self._filenames = load_pickle(
+            os.path.join(self._data_dir, 'filenames.pickle'),
+        )
 
     def __len__(self):
-        return math.ceil(len(self._filenames_noisy) / self._batch_size)
+        return math.ceil(len(self._filenames) / self._batch_size)
 
     def __iter__(self):
         self._iter_idx = 0
 
-        # Take pairs of noisy and clean images, and make a random shuffle.
-        filename_pairs = list(zip(
-            self._filenames_noisy,
-            self._filenames_clean,
-        ))
-        random.shuffle(filename_pairs)
-
-        # If the last batch size is not enough, pick some samples randomly and
-        # pad it.
-        if len(filename_pairs) % self._batch_size:
-            num_pad = \
-                self._batch_size - (len(filename_pairs) % self._batch_size)
-            filename_pairs += random.sample(filename_pairs, num_pad)
-
-        self._filename_pairs = filename_pairs
+        # Shuffle the filenames for randomized data loading.
+        random.shuffle(self._filenames)
 
         return self
 
     def __next__(self):
         if self._iter_idx < len(self):
-            # Load a batch of data, including noisy and clean images.
+            # Pickup the data range to be loaded.
             start_idx = self._batch_size * self._iter_idx
             end_idx = self._batch_size * (self._iter_idx + 1)
-            data_noisy, data_clean = self._load_data_pair(
-                self._filename_pairs[start_idx:end_idx],
-            )
+            filenames = self._filenames[start_idx:end_idx]
+
+            # Handle the case for last batch that may have less data as
+            # expected.
+            if len(filenames) < self._batch_size:
+                filenames += random.sample(
+                    self._filenames,
+                    self._batch_size - len(filenames),
+                )
+
+            # Load a batch of data, including noisy and clean images.
+            data_noisy, data_clean = self._load_data_pair(filenames)
 
             self._iter_idx += 1
 
@@ -65,10 +58,12 @@ class TrainLoader(object):
         else:
             raise StopIteration
 
-    def _load_data_pair(self, filename_pairs):
+    def _load_data_pair(self, filenames):
         data_noisy = []
         data_clean = []
-        for filename_noisy, filename_clean in filename_pairs:
+        for filename in filenames:
+            filename_noisy = os.path.join(self._dir_noisy, filename)
+            filename_clean = os.path.join(self._dir_clean, filename)
             data_noisy.append(cv2.imread(filename_noisy))
             data_clean.append(cv2.imread(filename_clean))
 
