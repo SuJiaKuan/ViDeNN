@@ -287,17 +287,15 @@ def generate_patches(
     return count_img_pairs, count_patch_pairs, diff_value_mapping
 
 
-def validate_pairs(dir_noisy, dir_clean, extension='png'):
+def validate_pairs(filenames, dir_noisy, dir_clean):
     print('Validate the generated pairs...')
-
-    filenames = [
-        os.path.basename(f)
-        for f in glob.glob(os.path.join(dir_noisy, '*.{}'.format(extension)))
-    ]
 
     valid_filenames = []
     for filename in tqdm(filenames):
-        if os.path.exists(os.path.join(dir_clean, filename)):
+        filename_noisy = os.path.join(dir_noisy, filename)
+        filename_clean = os.path.join(dir_clean, filename)
+        if os.path.exists(filename_noisy) \
+                and os.path.exists(filename_clean):
             valid_filenames.append(filename)
 
     return valid_filenames
@@ -346,7 +344,8 @@ def main(args):
         num_patch_pairs += count_patch_pairs
         diff_value_mapping_all.update(diff_value_mapping)
 
-    valid_filenames = validate_pairs(out_dir_noisy, out_dir_clean)
+    filenames = diff_value_mapping_all.keys()
+    valid_filenames = validate_pairs(filenames, out_dir_noisy, out_dir_clean)
     save_pickle(valid_filenames, filenames_path)
 
     diff_values = generate_diff_values(
