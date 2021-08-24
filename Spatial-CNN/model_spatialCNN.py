@@ -126,6 +126,7 @@ class denoiser(object):
         ckpt_dir,
         epoch,
         lr,
+        save_per_iter,
     ):
         num_batch = len(data_loader)
         # load pretrained model
@@ -180,6 +181,16 @@ class denoiser(object):
                 ))
                 iter_num += 1
                 writer.add_summary(summary, iter_num)
+
+                if (batch_id + 1) % save_per_iter == 0:
+                    self.evaluate(
+                        iter_num,
+                        eval_data_noisy,
+                        eval_data_clean,
+                        summary_merged=summary_psnr,
+                        summary_writer=writer,
+                    )  # eval_data value range is 0-255
+                    self.save(iter_num, ckpt_dir)
             self.evaluate(
                 iter_num,
                 eval_data_noisy,

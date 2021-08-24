@@ -63,6 +63,12 @@ def parse_args():
         help='checkpoints are saved here',
     )
     parser.add_argument(
+        '--save_per_iter',
+        dest='save_per_iter',
+        default=5000,
+        help='Per number of iteration to save the checkpoints once',
+    )
+    parser.add_argument(
         '--save_dir',
         dest='save_dir',
         default='./denoised',
@@ -94,6 +100,7 @@ def denoiser_train(denoiser, lr, args):
         args.ckpt_dir,
         args.epoch,
         lr,
+        args.save_per_iter,
     )
 
 
