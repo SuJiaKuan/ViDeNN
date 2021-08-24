@@ -95,6 +95,7 @@ def gen_patch_filename(
 
 
 def generate_patches_imp(
+    worker_id,
     videoname_noisy,
     videoname_clean,
     img_idxes,
@@ -112,7 +113,13 @@ def generate_patches_imp(
     count_img_pairs = 0
     count_patch_pairs = 0
 
-    for img_idx in img_idxes:
+    for idx, img_idx in enumerate(img_idxes):
+        print('[Worker {}] Processing {} / {}'.format(
+            worker_id,
+            idx,
+            len(img_idxes),
+        ))
+
         success_noisy, img_noisy = video_noisy.read(img_idx)
         success_clean, img_clean = video_clean.read(img_idx)
 
@@ -227,9 +234,10 @@ def generate_patches(
 
     with ProcessPoolExecutor(max_workers=num_workers) as executor:
         futures = []
-        for img_idxes in img_idxes_chunks:
+        for worker_id, img_idxes in enumerate(img_idxes_chunks):
             future = executor.submit(
                 generate_patches_imp,
+                worker_id,
                 videoname_noisy,
                 videoname_clean,
                 img_idxes,
