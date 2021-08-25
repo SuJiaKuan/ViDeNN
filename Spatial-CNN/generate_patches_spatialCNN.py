@@ -39,13 +39,13 @@ def parse_args():
     parser.add_argument(
         '--margin_x',
         type=int,
-        default=330,
+        default=400,
         help='X margin size',
     )
     parser.add_argument(
         '--margin_y',
         type=int,
-        default=70,
+        default=100,
         help='Y margin size',
     )
     parser.add_argument(
