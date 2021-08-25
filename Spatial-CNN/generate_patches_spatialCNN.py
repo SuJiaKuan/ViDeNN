@@ -36,7 +36,18 @@ def parse_args():
         help='Patch size',
     )
     parser.add_argument('--stride', type=int, default=100, help='Stride size')
-    parser.add_argument('--margin', type=int, default=100, help='Margin size')
+    parser.add_argument(
+        '--margin_x',
+        type=int,
+        default=330,
+        help='X margin size',
+    )
+    parser.add_argument(
+        '--margin_y',
+        type=int,
+        default=70,
+        help='Y margin size',
+    )
     parser.add_argument(
         '--num_aug',
         type=int,
@@ -113,7 +124,8 @@ def generate_patches_imp(
     img_idxes,
     patch_size,
     stride,
-    margin,
+    margin_x,
+    margin_y,
     num_aug,
     out_dir_noisy,
     out_dir_clean,
@@ -165,8 +177,8 @@ def generate_patches_imp(
 
             im_width = img_scaled_noisy.shape[1]
             im_height = img_scaled_noisy.shape[0]
-            xmins = range(margin, im_width - patch_size - margin, stride)
-            ymins = range(margin , im_height - patch_size - margin, stride)
+            xmins = range(margin_x, im_width - patch_size - margin_x, stride)
+            ymins = range(margin_y , im_height - patch_size - margin_y, stride)
             for xmin in xmins:
                 for ymin in ymins:
                     bbox = (
@@ -233,7 +245,8 @@ def generate_patches(
     videoname_clean,
     patch_size,
     stride,
-    margin,
+    margin_x,
+    margin_y,
     num_aug,
     num_workers,
     out_dir_noisy,
@@ -269,7 +282,8 @@ def generate_patches(
                 img_idxes,
                 patch_size,
                 stride,
-                margin,
+                margin_x,
+                margin_y,
                 num_aug,
                 out_dir_noisy,
                 out_dir_clean,
@@ -333,7 +347,8 @@ def main(args):
             videoname_clean,
             args.patch_size,
             args.stride,
-            args.margin,
+            args.margin_x,
+            args.margin_y,
             args.num_aug,
             args.num_workers,
             out_dir_noisy,
