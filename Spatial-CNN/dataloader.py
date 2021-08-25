@@ -11,9 +11,11 @@ from utilis import load_pickle
 
 class TrainLoader(object):
 
-    def __init__(self, data_dir, batch_size):
+    def __init__(self, data_dir, batch_size, weight_min=1, weight_max=20000):
         self._data_dir = data_dir
         self._batch_size = batch_size
+        self._weight_min = weight_min
+        self._weight_max = weight_max
 
         self._dir_noisy = os.path.join(self._data_dir, 'before')
         self._dir_clean = os.path.join(self._data_dir, 'after')
@@ -23,31 +25,33 @@ class TrainLoader(object):
             os.path.join(self._data_dir, 'filenames.pickle'),
         )
 
+        # Load image pair difference values.
+        self._diff_values = np.load(
+            os.path.join(self._data_dir, 'diff_values.npy'),
+        )
+        # Define the weights for sampling.
+        self._weights = np.clip(
+            math.e ** self._diff_values,
+            self._weight_min,
+            self._weight_max,
+        )
+
     def __len__(self):
         return math.ceil(len(self._filenames) / self._batch_size)
 
     def __iter__(self):
         self._iter_idx = 0
 
-        # Shuffle the filenames for randomized data loading.
-        random.shuffle(self._filenames)
-
         return self
 
     def __next__(self):
         if self._iter_idx < len(self):
-            # Pickup the data range to be loaded.
-            start_idx = self._batch_size * self._iter_idx
-            end_idx = self._batch_size * (self._iter_idx + 1)
-            filenames = self._filenames[start_idx:end_idx]
-
-            # Handle the case for last batch that may have less data as
-            # expected.
-            if len(filenames) < self._batch_size:
-                filenames += random.sample(
-                    self._filenames,
-                    self._batch_size - len(filenames),
-                )
+            # Weighted random sample.
+            filenames = random.choices(
+                self._filenames,
+                weights=self._weights,
+                k=self._batch_size,
+            )
 
             # Load a batch of data, including noisy and clean images.
             data_noisy, data_clean = self._load_data_pair(filenames)
