@@ -39,28 +39,18 @@ class TrainLoader(object):
     def __len__(self):
         return math.ceil(len(self._filenames) / self._batch_size)
 
-    def __iter__(self):
-        self._iter_idx = 0
+    def sample(self):
+        # Weighted random sample.
+        filenames = random.choices(
+            self._filenames,
+            weights=self._weights,
+            k=self._batch_size,
+        )
 
-        return self
+        # Load a batch of data, including noisy and clean images.
+        data_noisy, data_clean = self._load_data_pair(filenames)
 
-    def __next__(self):
-        if self._iter_idx < len(self):
-            # Weighted random sample.
-            filenames = random.choices(
-                self._filenames,
-                weights=self._weights,
-                k=self._batch_size,
-            )
-
-            # Load a batch of data, including noisy and clean images.
-            data_noisy, data_clean = self._load_data_pair(filenames)
-
-            self._iter_idx += 1
-
-            return data_noisy, data_clean
-        else:
-            raise StopIteration
+        return data_noisy, data_clean
 
     def _load_data_pair(self, filenames):
         data_noisy = []

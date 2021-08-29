@@ -44,6 +44,12 @@ def parse_args():
         help='initial learning rate for adam',
     )
     parser.add_argument(
+        '--batch_per_epoch',
+        dest='batch_per_epoch',
+        default=5000,
+        help='Number of batches for an epoch',
+    )
+    parser.add_argument(
         '--use_gpu',
         dest='use_gpu',
         type=int,
@@ -61,12 +67,6 @@ def parse_args():
         dest='ckpt_dir',
         default='./ckpt',
         help='checkpoints are saved here',
-    )
-    parser.add_argument(
-        '--save_per_iter',
-        dest='save_per_iter',
-        default=5000,
-        help='Per number of iteration to save the checkpoints once',
     )
     parser.add_argument(
         '--save_dir',
@@ -100,7 +100,7 @@ def denoiser_train(denoiser, lr, args):
         args.ckpt_dir,
         args.epoch,
         lr,
-        args.save_per_iter,
+        args.batch_per_epoch,
     )
 
 

@@ -126,14 +126,13 @@ class denoiser(object):
         ckpt_dir,
         epoch,
         lr,
-        save_per_iter,
+        batch_per_epoch,
     ):
-        num_batch = len(data_loader)
         # load pretrained model
         load_model_status, global_step = self.load(ckpt_dir)
         if load_model_status:
             iter_num = global_step
-            start_epoch = global_step // num_batch
+            start_epoch = global_step // batch_per_epoch
             print("[*] Model restore success!")
         else:
             iter_num = 0
@@ -158,7 +157,8 @@ class denoiser(object):
             summary_writer=writer,
         )  # eval_data value range is 0-255
         for epoch in range(start_epoch, epoch):
-            for batch_id, (batch_noisy, batch_clean) in enumerate(data_loader):
+            for batch_id in range(batch_per_epoch):
+                batch_noisy, batch_clean = data_loader.sample()
                 # Normalize the data values from 0-255 to 0-1
                 batch_noisy = batch_noisy.astype(np.float32) / 255.0
                 batch_clean = batch_clean.astype(np.float32) / 255.0
@@ -175,22 +175,12 @@ class denoiser(object):
                 print("Epoch: [%2d] [%4d/%4d] time: %4.4f, loss: %.6f" % (
                     epoch + 1,
                     batch_id + 1,
-                    num_batch,
+                    batch_per_epoch,
                     time.time() - start_time,
                     loss,
                 ))
                 iter_num += 1
                 writer.add_summary(summary, iter_num)
-
-                if (batch_id + 1) % save_per_iter == 0:
-                    self.evaluate(
-                        iter_num,
-                        eval_data_noisy,
-                        eval_data_clean,
-                        summary_merged=summary_psnr,
-                        summary_writer=writer,
-                    )  # eval_data value range is 0-255
-                    self.save(iter_num, ckpt_dir)
             self.evaluate(
                 iter_num,
                 eval_data_noisy,
