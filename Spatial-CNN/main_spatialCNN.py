@@ -57,6 +57,13 @@ def parse_args():
         help='gpu flag, 1 for GPU and 0 for CPU',
     )
     parser.add_argument(
+        '--gpu_fraction',
+        dest='gpu_fraction',
+        type=float,
+        default=0.3,
+        help='GPU Memory usage (fraction)',
+    )
+    parser.add_argument(
         '--phase',
         dest='phase',
         default='train',
@@ -143,7 +150,9 @@ def main(_):
     if args.use_gpu:
         # Control the gpu memory setting per_process_gpu_memory_fraction
         print("GPU\n")
-        gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
+        gpu_options = tf.GPUOptions(
+            per_process_gpu_memory_fraction=args.gpu_fraction,
+        )
         with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as \
                 sess:
             model = denoiser(sess)
