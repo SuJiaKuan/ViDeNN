@@ -89,7 +89,7 @@ def parse_args():
 
 def denoiser_train(denoiser, lr, args):
     train_data_dir = os.path.join(args.data_dir, 'train')
-    eval_data_dir = os.path.join(args.data_dir, 'test')
+    eval_data_dir = os.path.join(args.data_dir, 'val')
 
     data_loader = TrainLoader(train_data_dir, args.batch_size)
 
